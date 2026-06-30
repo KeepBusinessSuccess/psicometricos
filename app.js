@@ -1,5 +1,5 @@
 // app.js
-const API_URL = "URL_DE_TU_WEB_APP_DE_GOOGLE_AQUI"; // ¡Cámbialo por tu URL!
+const API_URL = "https://script.google.com/macros/s/AKfycbxq4xl-IF29t37tNBTpG1h692xmBcBKSbb7TWtJ3tXSeLwd3nmGt_b5PatseMl2L3eI/exec";
 
 let currentSerieIndex = 0;
 let timerInterval;
