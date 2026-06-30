@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal de Evaluación | Talento</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="hyperion-wrapper">
+        
+        <section id="login-screen" class="active">
+            <div class="card">
+                <h2>Acceso a Evaluación</h2>
+                <p>Por favor, ingresa el ID único que recibiste por correo.</p>
+                <input type="text" id="candidate-id" placeholder="Ej. test-01">
+                <button id="btn-validate">Comenzar Prueba</button>
+                <p id="error-message" class="glow-red" style="display: none;"></p>
+            </div>
+        </section>
+
+        <section id="test-screen" style="display: none;">
+            <div class="test-header">
+                <h2 id="serie-title">Serie I</h2>
+                <div class="timer-container">
+                    <span>Tiempo restante:</span>
+                    <h1 id="timer-display" class="card-value glow-green">00:00</h1>
+                </div>
+            </div>
+            
+            <div id="instructions" class="instructions-box"></div>
+
+            <div id="questions-container" class="questions-grid"></div>
+
+            <button id="btn-next-serie">Finalizar Serie</button>
+        </section>
+
+        <section id="finish-screen" style="display: none;">
+            <div class="card">
+                <h2 class="glow-green">¡Evaluación Completada!</h2>
+                <p>Tus respuestas han sido enviadas exitosamente. Ya puedes cerrar esta ventana.</p>
+            </div>
+        </section>
+
+    </div>
+
+    <script src="hyperion.js"></script>
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
