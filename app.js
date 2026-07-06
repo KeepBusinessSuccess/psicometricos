@@ -93,15 +93,17 @@ function startSerie() {
         
         // Si es pregunta de matemáticas/números (Series V y X)
         if (q.inputType === "text") {
-            html += `<input type="text" name="${q.id}" placeholder="Escribe tu respuesta aquí...">`;
+            // Permitimos: Números (0-9), espacios ( ), puntos (.), diagonales (/) y guiones (-)
+            // Bloqueamos: Todo tipo de letras y demás símbolos
+            let restricciones = `oninput="this.value = this.value.replace(/[^0-9 .\\-\\/]/g, '')"`;
+            
+            html += `<input type="text" name="${q.id}" placeholder="Tu respuesta..." ${restricciones} autocomplete="off">`;
         } 
         // Si es de opción múltiple
         else if (q.options) {
             const inputType = q.inputType === "checkbox" ? "checkbox" : "radio";
             for (const [key, value] of Object.entries(q.options)) {
-                // Truco para Series 6 y 8: Si la llave y el valor son iguales (Ej. V y V), solo mostramos "V)"
                 let textoMostrar = (key === value) ? `${key})` : `${key}) ${value}`;
-                
                 html += `<label><input type="${inputType}" name="${q.id}" value="${key}"> ${textoMostrar}</label><br>`;
             }
         }
