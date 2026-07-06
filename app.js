@@ -1,146 +1,228 @@
-// app.js
-const API_URL = "https://script.google.com/macros/s/AKfycbyhP7V1uyVhb30bvhUseT9_j37jKHbMhmGHA-UolVSyAP6nHD0eDItszWuyVX5OWNWw/exec";
+// app.js - KBS Edition
+
+const API_URL = "https://script.google.com/macros/s/AKfycbxq4xl-IF29t37tNBTpG1h692xmBcBKSbb7TWtJ3tXSeLwd3nmGt_b5PatseMl2L3eI/exec";
 
 let currentSerieIndex = 0;
+let respuestasCandidato = {};
 let timerInterval;
-let idCandidato = "";
-let respuestasCandidato = {}; 
+let candidateID = "";
 
+// Elementos del DOM
 const loginScreen = document.getElementById('login-screen');
+const instructionScreen = document.getElementById('instruction-screen');
 const testScreen = document.getElementById('test-screen');
 const finishScreen = document.getElementById('finish-screen');
-const btnValidate = document.getElementById('btn-validate');
-const errorMessage = document.getElementById('error-message');
-const timerDisplay = document.getElementById('timer-display');
 
-// 1. Validar ID
+const btnValidate = document.getElementById('btn-validate');
+const inputCandidateId = document.getElementById('candidate-id');
+const errorMessage = document.getElementById('error-message');
+const btnStartTimer = document.getElementById('btn-start-timer');
+const btnNextSerie = document.getElementById('btn-next-serie');
+
+// --- 1. VALIDACIÓN DEL CANDIDATO ---
 btnValidate.addEventListener('click', async () => {
-    idCandidato = document.getElementById('candidate-id').value.trim();
-    if (!idCandidato) return;
+    candidateID = inputCandidateId.value.trim();
+    if (!candidateID) {
+        showError("Por favor ingresa un ID válido.");
+        return;
+    }
 
     btnValidate.innerText = "Validando...";
-    errorMessage.style.display = 'none';
-    
+    btnValidate.disabled = true;
+
     try {
-        const response = await fetch(`${API_URL}?id=${idCandidato}`);
+        const response = await fetch(`${API_URL}?id=${candidateID}`);
         const data = await response.json();
 
         if (data.valid) {
             loginScreen.style.display = 'none';
-            testScreen.style.display = 'block';
-            startSerie();
+            showInstructions(); // Mandamos a la sala de espera de la Serie I
         } else {
-            showError(data.message);
+            showError(data.message || "ID no válido o prueba ya completada.");
         }
     } catch (error) {
-        showError("Error conectando con la base de datos.");
+        showError("Error de conexión con el servidor.");
+    } finally {
+        btnValidate.innerText = "Comenzar Prueba";
+        btnValidate.disabled = false;
     }
 });
 
 function showError(msg) {
     errorMessage.innerText = msg;
     errorMessage.style.display = 'block';
-    btnValidate.innerText = "Comenzar Prueba";
+    setTimeout(() => errorMessage.style.display = 'none', 4000);
 }
 
-// 2. Iniciar Serie
-function startSerie() {
+// --- 2. SALA DE ESPERA (INSTRUCCIONES) ---
+function showInstructions() {
+    testScreen.style.display = 'none';
+    instructionScreen.style.display = 'block';
+    clearInterval(timerInterval); // Detenemos cualquier reloj fantasma
+
     const currentSerie = testData[currentSerieIndex];
     
+    document.getElementById('inst-title').innerText = currentSerie.title;
+    document.getElementById('inst-text').innerText = currentSerie.instructions;
+    document.getElementById('inst-example').innerText = currentSerie.example || "";
+    
+    const minutes = Math.floor(currentSerie.timeLimit / 60);
+    const seconds = currentSerie.timeLimit % 60;
+    document.getElementById('inst-time').innerText = `${minutes} min ${seconds} seg`;
+    
+    window.scrollTo(0, 0);
+}
+
+// Botón para arrancar el tiempo desde la sala de espera
+btnStartTimer.addEventListener('click', () => {
+    instructionScreen.style.display = 'none';
+    testScreen.style.display = 'block';
+    startSerie();
+});
+
+// --- 3. RENDERIZADO DE LA SERIE ---
+function startSerie() {
+    const currentSerie = testData[currentSerieIndex];
     document.getElementById('serie-title').innerText = currentSerie.title;
-    document.getElementById('instructions').innerText = currentSerie.instructions;
     
     const container = document.getElementById('questions-container');
     container.innerHTML = '';
     
-    currentSerie.questions.forEach((q, index) => {
+    currentSerie.questions.forEach((q) => {
         let html = `<div class="question-block"><p><strong>${q.text}</strong></p>`;
-        for (const [key, value] of Object.entries(q.options)) {
-            // Nota: Para series con múltiples respuestas (como la IV), cambiaremos type="radio" a type="checkbox" en el futuro.
-            html += `<label><input type="radio" name="${q.id}" value="${key}"> ${key}) ${value}</label>`;
+        
+        // Si es pregunta de matemáticas/números (Series V y X)
+        if (q.inputType === "text") {
+            html += `<input type="text" name="${q.id}" placeholder="Escribe tu respuesta aquí...">`;
+        } 
+        // Si es de opción múltiple
+        else if (q.options) {
+            const inputType = q.inputType === "checkbox" ? "checkbox" : "radio";
+            for (const [key, value] of Object.entries(q.options)) {
+                // Truco para Series 6 y 8: Si la llave y el valor son iguales (Ej. V y V), solo mostramos "V)"
+                let textoMostrar = (key === value) ? `${key})` : `${key}) ${value}`;
+                
+                html += `<label><input type="${inputType}" name="${q.id}" value="${key}"> ${textoMostrar}</label><br>`;
+            }
         }
+        
         html += `</div>`;
         container.innerHTML += html;
     });
 
-    // Subir el scroll al inicio de la página para la nueva serie
     window.scrollTo(0, 0);
     startTimer(currentSerie.timeLimit);
 }
 
-// 3. Temporizador Estricto + Hyperion Glow
-function startTimer(seconds) {
-    clearInterval(timerInterval);
-    
-    timerInterval = setInterval(() => {
-        seconds--;
-        
-        const minutes = Math.floor(seconds / 60);
-        const remainderSeconds = seconds % 60;
-        timerDisplay.innerText = `${minutes.toString().padStart(2, '0')}:${remainderSeconds.toString().padStart(2, '0')}`;
-        
-        // Integración de tu sistema Hyperion: Cambio de color según el tiempo
-        if (seconds <= 10) {
-            timerDisplay.className = "card-value glow-red";
-        } else if (seconds <= 30) {
-            timerDisplay.className = "card-value glow-yellow";
-        } else {
-            timerDisplay.className = "card-value glow-green";
-        }
-
-        if (seconds <= 0) {
-            clearInterval(timerInterval);
-            autoSubmitSerie(); 
-        }
-    }, 1000);
-}
-
-// 4. Capturar Respuestas
-document.getElementById('btn-next-serie').addEventListener('click', () => {
-    clearInterval(timerInterval);
-    autoSubmitSerie();
-});
+// --- 4. RECOLECCIÓN DE RESPUESTAS ---
+btnNextSerie.addEventListener('click', autoSubmitSerie);
 
 function autoSubmitSerie() {
+    clearInterval(timerInterval);
     const currentSerie = testData[currentSerieIndex];
-    let respuestas = [];
+    let respuestasDeEstaSerie = [];
 
     currentSerie.questions.forEach((q) => {
-        // Busca qué input seleccionó el candidato
-        const selected = document.querySelector(`input[name="${q.id}"]:checked`);
-        respuestas.push(selected ? selected.value : ""); 
+        if (q.inputType === "text") {
+            const inputEl = document.querySelector(`input[name="${q.id}"]`);
+            respuestasDeEstaSerie.push(inputEl ? inputEl.value.trim() : "");
+        } else if (q.inputType === "checkbox") {
+            const selected = document.querySelectorAll(`input[name="${q.id}"]:checked`);
+            let values = Array.from(selected).map(el => el.value);
+            respuestasDeEstaSerie.push(values.join(' ')); 
+        } else {
+            const selected = document.querySelector(`input[name="${q.id}"]:checked`);
+            respuestasDeEstaSerie.push(selected ? selected.value : "");
+        }
     });
 
-    respuestasCandidato[`S${currentSerie.serie}`] = respuestas.join(',');
+    // Guardar las respuestas en el objeto global
+    respuestasCandidato[`S${currentSerie.serie}`] = respuestasDeEstaSerie.join(',');
 
     currentSerieIndex++;
+    
+    // Si hay más series, regresamos a la sala de espera. Si no, enviamos.
     if (currentSerieIndex < testData.length) {
-        startSerie();
+        showInstructions();
     } else {
         enviarExamenFinal();
     }
 }
 
-// 5. Enviar a GAS
+// --- 5. TEMPORIZADOR Y MOTOR VISUAL ---
+function startTimer(secondsLeft) {
+    const display = document.getElementById('timer-display');
+    
+    // Colores iniciales
+    display.classList.remove('glow-yellow', 'glow-red');
+    display.classList.add('glow-green');
+
+    timerInterval = setInterval(() => {
+        secondsLeft--;
+        
+        let minutes = Math.floor(secondsLeft / 60);
+        let seconds = secondsLeft % 60;
+        
+        if (minutes < 10) minutes = "0" + minutes;
+        if (seconds < 10) seconds = "0" + seconds;
+        
+        display.innerText = `${minutes}:${seconds}`;
+
+        // Alertas visuales de tiempo
+        if (secondsLeft <= 30 && secondsLeft > 10) {
+            display.classList.replace('glow-green', 'glow-yellow');
+        } else if (secondsLeft <= 10) {
+            display.classList.replace('glow-yellow', 'glow-red');
+        }
+
+        // Se acabó el tiempo
+        if (secondsLeft <= 0) {
+            clearInterval(timerInterval);
+            autoSubmitSerie();
+        }
+    }, 1000);
+}
+
+// --- 6. ENVÍO FINAL AL SERVIDOR ---
 async function enviarExamenFinal() {
     testScreen.style.display = 'none';
+    instructionScreen.style.display = 'none';
     
-    // Mostramos estado de carga
-    document.body.innerHTML += `<div id="loader" class="card"><h2 class="glow-yellow">Enviando resultados...</h2></div>`;
-    
+    // Mostramos pantalla de carga
+    document.querySelector('.hyperion-wrapper').innerHTML = `
+        <div class="card" style="text-align: center;">
+            <h2 class="glow-yellow">Enviando resultados...</h2>
+            <p>Por favor no cierres esta ventana.</p>
+        </div>
+    `;
+
     const payload = {
-        id: idCandidato,
+        id: candidateID,
         respuestas: respuestasCandidato
     };
 
     try {
         await fetch(API_URL, {
             method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-        document.getElementById('loader').remove();
-        finishScreen.style.display = 'block';
-    } catch (e) {
-        document.getElementById('loader').innerHTML = `<h2 class="glow-red">Error al enviar. No cierres la ventana y avisa a RRHH.</h2>`;
+
+        // Pantalla de Éxito
+        document.querySelector('.hyperion-wrapper').innerHTML = `
+            <div class="card" style="text-align: center;">
+                <h2 class="glow-green">¡Evaluación Completada!</h2>
+                <p>Tus respuestas han sido enviadas exitosamente al equipo de KBS.</p>
+                <p>Ya puedes cerrar esta ventana.</p>
+            </div>
+        `;
+    } catch (error) {
+        document.querySelector('.hyperion-wrapper').innerHTML = `
+            <div class="card" style="text-align: center;">
+                <h2 class="glow-red">Ocurrió un problema</h2>
+                <p>No pudimos conectar con el servidor, pero tus respuestas están a salvo. Por favor avisa a Recursos Humanos.</p>
+            </div>
+        `;
     }
 }
